@@ -75,9 +75,12 @@ void msm_drain_eventq(struct msm_device_queue *queue)
 		isp_event =
 			(struct msm_isp_event_ctrl *)
 			qcmd->command;
-		if (isp_event->isp_data.ctrl.value != NULL)
+		if (isp_event->isp_data.ctrl.value != NULL) {
 			kfree(isp_event->isp_data.ctrl.value);
+			isp_event->isp_data.ctrl.value = NULL;
+		}
 		kfree(qcmd->command);
+		qcmd->command = NULL;
 		free_qcmd(qcmd);
 	}
 	spin_unlock_irqrestore(&queue->lock, flags);
@@ -387,6 +390,7 @@ static int msm_server_control(struct msm_cam_server_dev *server_dev,
 	out->value = value;
 
 	kfree(ctrlcmd);
+	rcmd->command = NULL;
 	free_qcmd(rcmd);
 	D("%s: rc %d\n", __func__, rc);
 	/* rc is the time elapsed. */
@@ -1215,7 +1219,6 @@ static long msm_ioctl_server(struct file *file, void *fh,
 		}
 		k_isp_event = (struct msm_isp_event_ctrl *)
 				event_cmd->command;
-		free_qcmd(event_cmd);
 
 		/* Save the pointer of the user allocated command buffer*/
 		u_ctrl_value = u_isp_event.isp_data.ctrl.value;
@@ -1237,23 +1240,31 @@ static long msm_ioctl_server(struct file *file, void *fh,
 				pr_err("%s Copy to user failed for cmd %d",
 					__func__, cmd);
 				kfree(k_isp_event->isp_data.ctrl.value);
+				k_isp_event->isp_data.ctrl.value = NULL;
 				kfree(k_isp_event);
+				event_cmd->command = NULL;
+				free_qcmd(event_cmd);
 				rc = -EINVAL;
 				mutex_unlock(&g_server_dev.server_queue_lock);
 				break;
 			}
 			kfree(k_isp_event->isp_data.ctrl.value);
+			k_isp_event->isp_data.ctrl.value = NULL;
 		}
 		if (copy_to_user((void __user *)ioctl_ptr->ioctl_ptr,
 			&u_isp_event, sizeof(struct msm_isp_event_ctrl))) {
 			pr_err("%s Copy to user failed for cmd %d",
 				__func__, cmd);
 			kfree(k_isp_event);
+			event_cmd->command = NULL;
+			free_qcmd(event_cmd);
 			mutex_unlock(&g_server_dev.server_queue_lock);
 			rc = -EINVAL;
 			return rc;
 		}
 		kfree(k_isp_event);
+		event_cmd->command = NULL;
+		free_qcmd(event_cmd);
 		mutex_unlock(&g_server_dev.server_queue_lock);
 		rc = 0;
 		break;
@@ -2474,6 +2485,7 @@ int msm_server_send_ctrl(struct msm_ctrl_cmd *out,
 	out->value = value;
 
 	kfree(ctrlcmd);
+	rcmd->command = NULL;
 	free_qcmd(rcmd);
 	D("%s: rc %d\n", __func__, rc);
 	/* rc is the time elapsed. */
@@ -2525,40 +2537,6 @@ static unsigned int msm_poll_config(struct file *fp,
 	&config->config_stat_event_queue.eventHandle.wait, wait);
 	if (v4l2_event_pending(&config->config_stat_event_queue.eventHandle))
 		rc |= POLLPRI;
-	return rc;
-}
-
-static int msm_mmap_config(struct file *fp, struct vm_area_struct *vma)
-{
-	struct msm_cam_config_dev *config_cam = fp->private_data;
-	int rc = 0;
-	int phyaddr;
-	int retval;
-	unsigned long size;
-
-	D("%s: phy_addr=0x%x", __func__, config_cam->mem_map.cookie);
-	phyaddr = (int)config_cam->mem_map.cookie;
-	if (!phyaddr) {
-		pr_err("%s: no physical memory to map", __func__);
-		return -EFAULT;
-	}
-	memset(&config_cam->mem_map, 0,
-		sizeof(struct msm_mem_map_info));
-	size = vma->vm_end - vma->vm_start;
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-	retval = remap_pfn_range(vma, vma->vm_start,
-					phyaddr >> PAGE_SHIFT,
-					size, vma->vm_page_prot);
-	if (retval) {
-		pr_err("%s: remap failed, rc = %d",
-					__func__, retval);
-		rc = -ENOMEM;
-		goto end;
-	}
-	D("%s: phy_addr=0x%x: %08lx-%08lx, pgoff %08lx\n",
-			__func__, (uint32_t)phyaddr,
-			vma->vm_start, vma->vm_end, vma->vm_pgoff);
-end:
 	return rc;
 }
 
@@ -2810,10 +2788,11 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 							k_msg_value,
 					 k_isp_event->isp_data.isp_msg.len)) {
 						rc = -EINVAL;
-						break;
+						ERR_COPY_TO_USER();
 					}
 					kfree(k_msg_value);
-					k_msg_value = NULL;
+					k_isp_event->isp_data.isp_msg.len = 0;
+					k_isp_event->isp_data.isp_msg.data = NULL;
 				}
 			}
 		}
@@ -2823,15 +2802,19 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 				(void *)&u_isp_event, sizeof(
 				struct msm_isp_event_ctrl))) {
 			rc = -EINVAL;
-			break;
+			ERR_COPY_TO_USER();
 		}
 		kfree(k_isp_event);
-		k_isp_event = NULL;
+		*((uint32_t *)ev.u.data) = 0;
+
+		if (rc < 0)
+			break;
 
 		/* Copy the v4l2_event structure back to the user*/
 		if (copy_to_user((void __user *)arg, &ev,
 				sizeof(struct v4l2_event))) {
 			rc = -EINVAL;
+			ERR_COPY_TO_USER();
 			break;
 		}
 		}
@@ -2840,12 +2823,6 @@ static long msm_ioctl_config(struct file *fp, unsigned int cmd,
 
 	case MSM_CAM_IOCTL_V4L2_EVT_NOTIFY:
 		rc = msm_v4l2_evt_notify(config_cam->p_mctl, cmd, arg);
-		break;
-
-	case MSM_CAM_IOCTL_SET_MEM_MAP_INFO:
-		if (copy_from_user(&config_cam->mem_map, (void __user *)arg,
-				sizeof(struct msm_mem_map_info)))
-			rc = -EINVAL;
 		break;
 
 	case MSM_CAM_IOCTL_SET_MCTL_SDEV:{
@@ -2912,9 +2889,13 @@ static int msm_close_config(struct inode *node, struct file *f)
 			(*((uint32_t *)ev.u.data));
 		if (isp_event) {
 			if (isp_event->isp_data.isp_msg.len != 0 &&
-				isp_event->isp_data.isp_msg.data != NULL)
+				isp_event->isp_data.isp_msg.data != NULL) {
 				kfree(isp_event->isp_data.isp_msg.data);
+				isp_event->isp_data.isp_msg.len = 0;
+				isp_event->isp_data.isp_msg.data = NULL;
+			}
 			kfree(isp_event);
+			*((uint32_t *)ev.u.data) = 0;
 		}
 	}
 	return 0;
@@ -2925,7 +2906,6 @@ static const struct file_operations msm_fops_config = {
 	.open  = msm_open_config,
 	.poll  = msm_poll_config,
 	.unlocked_ioctl = msm_ioctl_config,
-	.mmap	= msm_mmap_config,
 	.release = msm_close_config,
 };
 
