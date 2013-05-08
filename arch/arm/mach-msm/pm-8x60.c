@@ -24,9 +24,12 @@
 #include <linux/smp.h>
 #include <linux/suspend.h>
 #include <linux/tick.h>
+#include <linux/platform_device.h>
 #include <mach/msm_iomap.h>
 #include <mach/socinfo.h>
 #include <mach/system.h>
+#include <mach/scm.h>
+#include <mach/socinfo.h>
 #include <asm/cacheflush.h>
 #include <asm/hardware/gic.h>
 #include <asm/pgtable.h>
@@ -68,7 +71,7 @@ static int msm_pm_debug_mask = 1;
 module_param_named(
 	debug_mask, msm_pm_debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP
 );
-
+static int msm_pm_retention_tz_call;
 
 /******************************************************************************
  * Sleep Modes and Parameters
@@ -78,6 +81,9 @@ enum {
 	MSM_PM_MODE_ATTR_IDLE,
 	MSM_PM_MODE_ATTR_NR,
 };
+
+#define SCM_L2_RETENTION	(0x2)
+#define SCM_CMD_TERMINATE_PC	(0x2)
 
 static char *msm_pm_mode_attr_labels[MSM_PM_MODE_ATTR_NR] = {
 	[MSM_PM_MODE_ATTR_SUSPEND] = "suspend_enabled",
@@ -333,13 +339,28 @@ static void msm_pm_config_hw_before_power_down(void)
  */
 static void msm_pm_config_hw_after_power_up(void)
 {
-	return;
 }
 
 /*
  * Configure hardware registers in preparation for SWFI.
  */
 static void msm_pm_config_hw_before_swfi(void)
+{
+	return;
+}
+
+/*
+ * Configure/Restore hardware registers in preparation for Retention.
+ */
+
+static void msm_pm_config_hw_after_retention(void)
+{
+	int ret;
+	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING, false);
+	WARN_ON(ret);
+}
+
+static void msm_pm_config_hw_before_retention(void)
 {
 	return;
 }
@@ -410,12 +431,17 @@ static void msm_pm_retention(void)
 {
 	int ret = 0;
 
-	msm_pm_config_hw_before_swfi();
+	msm_pm_config_hw_before_retention();
 	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_POWER_RETENTION, false);
 	WARN_ON(ret);
-	msm_arch_idle();
-	ret = msm_spm_set_low_power_mode(MSM_SPM_MODE_CLOCK_GATING, false);
-	WARN_ON(ret);
+
+	if (msm_pm_retention_tz_call)
+		scm_call_atomic1(SCM_SVC_BOOT, SCM_CMD_TERMINATE_PC,
+					SCM_L2_RETENTION);
+	else
+		msm_arch_idle();
+
+	msm_pm_config_hw_after_retention();
 }
 
 #ifdef CONFIG_CACHE_L2X0
@@ -466,7 +492,6 @@ static bool __ref msm_pm_spm_power_collapse(
 #ifdef CONFIG_VFP
 	vfp_pm_suspend();
 #endif
-
 	collapsed = msm_pm_l2x0_power_collapse();
 
 	msm_pm_boot_config_after_pc(cpu);
@@ -660,6 +685,7 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 
 		switch (mode) {
 		case MSM_PM_SLEEP_MODE_POWER_COLLAPSE:
+		case MSM_PM_SLEEP_MODE_RETENTION:
 			if (!allow)
 				break;
 
@@ -677,11 +703,6 @@ int msm_pm_idle_prepare(struct cpuidle_device *dev,
 				allow = false;
 				break;
 			}
-			/* fall through */
-
-		case MSM_PM_SLEEP_MODE_RETENTION:
-			if (!allow)
-				break;
 			/* fall through */
 
 		case MSM_PM_SLEEP_MODE_WAIT_FOR_INTERRUPT:
@@ -929,6 +950,51 @@ void msm_pm_set_sleep_ops(struct msm_pm_sleep_ops *ops)
 		pm_sleep_ops = *ops;
 }
 
+void __init msm_pm_set_tz_retention_flag(unsigned int flag)
+{
+	msm_pm_retention_tz_call = flag;
+}
+
+static int __devinit msm_pc_debug_probe(struct platform_device *pdev)
+{
+	struct resource *res = NULL;
+	int i ;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res)
+		goto fail;
+
+	msm_pc_debug_counters_phys = res->start;
+	WARN_ON(resource_size(res) < SZ_64);
+	msm_pc_debug_counters = devm_ioremap(&pdev->dev, res->start,
+					resource_size(res));
+
+	if (!msm_pc_debug_counters)
+		goto fail;
+
+	for (i = 0; i < resource_size(res)/4; i++)
+		__raw_writel(0, msm_pc_debug_counters + i * 4);
+	return 0;
+fail:
+	msm_pc_debug_counters = 0;
+	msm_pc_debug_counters_phys = 0;
+	return -EFAULT;
+}
+
+static struct of_device_id msm_pc_debug_table[] = {
+	{.compatible = "qcom,pc-cntr"},
+	{},
+};
+
+static struct platform_driver msm_pc_counter_driver = {
+	.probe = msm_pc_debug_probe,
+	.driver = {
+		.name = "pc-cntr",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_pc_debug_table,
+	},
+};
+
 static int __init msm_pm_init(void)
 {
 	pgd_t *pc_pgd;
@@ -944,6 +1010,7 @@ static int __init msm_pm_init(void)
 	unsigned long exit_phys;
 
 	/* Page table for cores to come back up safely. */
+
 	pc_pgd = pgd_alloc(&init_mm);
 	if (!pc_pgd)
 		return -ENOMEM;
@@ -986,6 +1053,7 @@ static int __init msm_pm_init(void)
 	suspend_set_ops(&msm_pm_ops);
 	msm_pm_qtimer_available();
 	msm_cpuidle_init();
+	platform_driver_register(&msm_pc_counter_driver);
 
 	return 0;
 }

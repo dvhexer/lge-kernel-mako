@@ -778,7 +778,6 @@ static DEFINE_CLK_VOTER(pnoc_sdcc3_clk, &pnoc_clk.c, 0);
 static DEFINE_CLK_VOTER(pnoc_sdcc4_clk, &pnoc_clk.c, 0);
 
 static DEFINE_CLK_VOTER(pnoc_sps_clk, &pnoc_clk.c, 0);
-static DEFINE_CLK_VOTER(pnoc_qseecom_clk, &pnoc_clk.c, 0);
 
 static struct clk_freq_tbl ftbl_gcc_usb30_master_clk[] = {
 	F(125000000,  gpll0,   1,   5,  24),
@@ -4890,6 +4889,11 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("bus_clk",      gcc_ce2_axi_clk.c, "qcrypto.0"),
 	CLK_LOOKUP("core_clk_src", ce2_clk_src.c,     "qcrypto.0"),
 
+	CLK_LOOKUP("core_clk",     gcc_ce1_clk.c,         "qseecom"),
+	CLK_LOOKUP("iface_clk",    gcc_ce1_ahb_clk.c,     "qseecom"),
+	CLK_LOOKUP("bus_clk",      gcc_ce1_axi_clk.c,     "qseecom"),
+	CLK_LOOKUP("core_clk_src", ce1_clk_src.c,         "qseecom"),
+
 	CLK_LOOKUP("core_clk", gcc_gp1_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_gp2_clk.c, ""),
 	CLK_LOOKUP("core_clk", gcc_gp3_clk.c, ""),
@@ -5076,7 +5080,6 @@ static struct clk_lookup msm_clocks_8974[] = {
 	CLK_LOOKUP("core_clk", gcc_prng_ahb_clk.c, "msm_rng"),
 
 	CLK_LOOKUP("dfab_clk", pnoc_sps_clk.c, "msm_sps"),
-	CLK_LOOKUP("bus_clk",  pnoc_qseecom_clk.c, "qseecom"),
 
 	CLK_LOOKUP("bus_clk", snoc_clk.c, ""),
 	CLK_LOOKUP("bus_clk", pnoc_clk.c, ""),
@@ -5322,16 +5325,16 @@ static void __init reg_init(void)
 
 	if (!(readl_relaxed(GCC_REG_BASE(GPLL0_STATUS_REG))
 			& gpll0_clk_src.status_mask))
-		configure_pll(&gpll0_config, &gpll0_regs, 1);
+		configure_sr_hpm_lp_pll(&gpll0_config, &gpll0_regs, 1);
 
 	if (!(readl_relaxed(GCC_REG_BASE(GPLL1_STATUS_REG))
 			& gpll1_clk_src.status_mask))
-		configure_pll(&gpll1_config, &gpll1_regs, 1);
+		configure_sr_hpm_lp_pll(&gpll1_config, &gpll1_regs, 1);
 
-	configure_pll(&mmpll0_config, &mmpll0_regs, 1);
-	configure_pll(&mmpll1_config, &mmpll1_regs, 1);
-	configure_pll(&mmpll3_config, &mmpll3_regs, 0);
-	configure_pll(&lpapll0_config, &lpapll0_regs, 1);
+	configure_sr_hpm_lp_pll(&mmpll0_config, &mmpll0_regs, 1);
+	configure_sr_hpm_lp_pll(&mmpll1_config, &mmpll1_regs, 1);
+	configure_sr_hpm_lp_pll(&mmpll3_config, &mmpll3_regs, 0);
+	configure_sr_hpm_lp_pll(&lpapll0_config, &lpapll0_regs, 1);
 
 	/* Enable GPLL0's aux outputs. */
 	regval = readl_relaxed(GCC_REG_BASE(GPLL0_USER_CTL_REG));
@@ -5489,7 +5492,7 @@ static void __init msm8974_clock_pre_init(void)
 	if (!virt_bases[APCS_BASE])
 		panic("clock-8974: Unable to ioremap APCS_GCC_CC memory!");
 
-	clk_ops_local_pll.enable = msm8974_pll_clk_enable;
+	clk_ops_local_pll.enable = sr_hpm_lp_pll_clk_enable;
 
 	vdd_dig_reg = rpm_regulator_get(NULL, "vdd_dig");
 	if (IS_ERR(vdd_dig_reg))
