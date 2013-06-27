@@ -928,11 +928,7 @@ WDI_FillTxBd
        // set then change the DPU Routing Flag so
        // that the frame will be routed to Firmware for queuing & transmit
        if (IS_VSTA_IDX(ucStaId) ||
-                 (
-#ifdef FEATURE_WLAN_TDLS
-
-                  (ucSTAType == WDI_STA_ENTRY_TDLS_PEER ) &&
-#endif
+                 ((ucSTAType == WDI_STA_ENTRY_TDLS_PEER ) &&
                   (ucTxFlag & WDI_TRIGGER_ENABLED_AC_MASK)))
        {
            pBd->dpuRF = BMUWQ_FW_DPU_TX;
