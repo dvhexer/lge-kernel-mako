@@ -1279,26 +1279,26 @@ static struct msm_bus_vectors vidc_venc_1080p_turbo_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VIDEO_ENC,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 222298112,
+		.ab  = 372244480,
 		.ib  = 3522000000U,
 	},
 	{
 		.src = MSM_BUS_MASTER_VIDEO_DEC,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 330301440,
+		.ab  = 501219328,
 		.ib  = 3522000000U,
 	},
 	{
 		.src = MSM_BUS_MASTER_AMPSS_M0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 2500000,
-		.ib  = 700000000,
+		.ib  = 5000000,
 	},
 	{
 		.src = MSM_BUS_MASTER_AMPSS_M0,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
 		.ab  = 2500000,
-		.ib  = 10000000,
+		.ib  = 5000000,
 	},
 };
 static struct msm_bus_vectors vidc_vdec_1080p_turbo_vectors[] = {
@@ -1918,12 +1918,11 @@ struct platform_device msm_gss = {
 
 static struct fs_driver_data gfx3d_fs_data = {
 	.clks = (struct fs_clk_data[]){
-		{ .name = "core_clk", .reset_rate = 1800000 },
+		{ .name = "core_clk", .reset_rate = 27000000 },
 		{ .name = "iface_clk" },
 		{ .name = "bus_clk" },
 		{ 0 }
 	},
-	.reset_delay_us = 10,
 	.bus_port0 = MSM_BUS_MASTER_GRAPHICS_3D,
 	.bus_port1 = MSM_BUS_MASTER_GRAPHICS_3D_PORT1,
 };
@@ -2012,7 +2011,7 @@ struct platform_device *apq8064_footswitch[] __initdata = {
 	FS_8X60(FS_IJPEG,  "vdd",	"msm_gemini.0",	&ijpeg_fs_data),
 	FS_8X60(FS_VFE,    "vdd",	"msm_vfe.0",	&vfe_fs_data),
 	FS_8X60(FS_VPE,    "vdd",	"msm_vpe.0",	&vpe_fs_data),
-	FS_8X60(FS_GFX3D_8064, "vdd",	"kgsl-3d0.0",	&gfx3d_fs_data),
+	FS_8X60(FS_GFX3D,  "vdd",	"kgsl-3d0.0",	&gfx3d_fs_data),
 	FS_8X60(FS_VED,    "vdd",	"msm_vidc.0",	&ved_fs_data),
 	FS_8X60(FS_VCAP,   "vdd",	"msm_vcap.0",	&vcap_fs_data),
 };
