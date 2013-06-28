@@ -142,7 +142,9 @@ extern unsigned long nr_iowait(void);
 extern unsigned long avg_nr_running(void);
 extern unsigned long nr_iowait_cpu(int cpu);
 extern unsigned long this_cpu_load(void);
-
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+extern unsigned long this_cpu_loadx(int i);
+#endif
 
 extern void calc_global_load(unsigned long ticks);
 
@@ -1254,6 +1256,9 @@ struct task_struct {
 #ifdef CONFIG_SMP
 	struct llist_node wake_entry;
 	int on_cpu;
+	struct task_struct *last_wakee;
+	unsigned long nr_wakee_switch;
+	unsigned long last_switch_decay;
 #endif
 	int on_rq;
 

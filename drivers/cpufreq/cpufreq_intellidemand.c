@@ -61,6 +61,10 @@
 #define DBS_SYNC_FREQ				(702000)
 #define DBS_OPTIMAL_FREQ			(1296000)
 
+#ifdef CONFIG_CPUFREQ_ID_PERFLOCK
+#define DBS_PERFLOCK_MIN_FREQ			(594000)
+#endif
+
 static u64 freq_boosted_time;
 /*
  * The polling frequency of this governor depends on the capability of
@@ -93,7 +97,7 @@ static u64 sampling_rate_boosted_time;
 static unsigned int current_sampling_rate;
 
 #ifdef CONFIG_CPUFREQ_ID_PERFLOCK
-static unsigned int saved_policy_min;
+static unsigned int saved_policy_min = 0;
 #endif
 
 static void do_dbs_timer(struct work_struct *work);
@@ -1205,9 +1209,10 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 				freq_next = dbs_tuners_ins.sync_freq;
 
 			if (max_load_freq >
-				 (dbs_tuners_ins.up_threshold_multi_core -
+				 ((dbs_tuners_ins.up_threshold_multi_core -
 				  dbs_tuners_ins.down_differential_multi_core) *
-				  policy->cur)
+				  policy->cur) &&
+				freq_next < dbs_tuners_ins.optimal_freq)
 				freq_next = dbs_tuners_ins.optimal_freq;
 
 		}
@@ -1346,6 +1351,18 @@ static void do_dbs_timer(struct work_struct *work)
 	else
 		if (rq_persist_count > 0)
 			rq_persist_count--;
+
+#ifdef CONFIG_CPUFREQ_ID_PERFLOCK
+	if (cpu == 0) {
+		if (num_online_cpus() >= 2) {
+			if (saved_policy_min != 0)
+				policy->min = saved_policy_min;
+		} else if (num_online_cpus() == 1) {
+			saved_policy_min = policy->min;
+			policy->min = DBS_PERFLOCK_MIN_FREQ;
+		}
+	}
+#endif
 
 #ifdef CONFIG_CPUFREQ_LIMIT_MAX_FREQ
 	if (rq_persist_count > 3) {
