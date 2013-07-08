@@ -3276,6 +3276,7 @@ typedef struct sSirNsOffloadReq
     tANI_U8 selfMacAddr[6];
     tANI_U8 srcIPv6AddrValid;
     tANI_U8 targetIPv6AddrValid[SIR_MAC_NUM_TARGET_IPV6_NS_OFFLOAD_NA];
+    tANI_U8 slotIdx;
 } tSirNsOffloadReq, *tpSirNsOffloadReq;
 #endif //WLAN_NS_OFFLOAD
 
@@ -3318,6 +3319,7 @@ typedef struct sSirSmeAddStaSelfReq
     tANI_U16        mesgType;
     tANI_U16        mesgLen;
     tSirMacAddr     selfMacAddr;
+    tVOS_CON_MODE   currDeviceMode;
 }tSirSmeAddStaSelfReq, *tpSirSmeAddStaSelfReq;
 
 typedef struct sSirSmeDelStaSelfReq
@@ -3446,7 +3448,6 @@ typedef struct sSirWlanSetRxpFilters
 #define CHANNEL_LIST_DYNAMIC_UPDATE           4 /* Occupied channel list can be learnt after update */
 #define SIR_ROAM_SCAN_24G_DEFAULT_CH     1
 #define SIR_ROAM_SCAN_5G_DEFAULT_CH      36
-#define SIR_ROAM_SCAN_CHANNEL_SWITCH_TIME 3
 #define SIR_ROAM_SCAN_RESERVED_BYTES     61
 #endif
 

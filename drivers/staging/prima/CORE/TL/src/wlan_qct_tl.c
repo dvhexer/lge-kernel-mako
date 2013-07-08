@@ -3351,7 +3351,15 @@ WLANTL_SuspendDataTx
       return VOS_STATUS_E_FAULT;
     }
 
-    if ( pTLCb->atlSTAClients[*pucSTAId] && (0 == pTLCb->atlSTAClients[*pucSTAId]->ucExists ))
+    if ( NULL == pTLCb->atlSTAClients[*pucSTAId] )
+    {
+      TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
+            "WLAN TL:Invalid pTLCb->atlSTAClients pointer for STA Id :%d on "
+            "WLANTL_SuspendDataTx", *pucSTAId));
+      return VOS_STATUS_E_FAULT;
+    }
+
+    if ( 0 == pTLCb->atlSTAClients[*pucSTAId]->ucExists )
     {
       TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
              "WLAN TL:Station %d was not previously registered on WLANTL_SuspendDataTx", *pucSTAId));
@@ -3451,7 +3459,15 @@ WLANTL_ResumeDataTx
       return VOS_STATUS_E_FAULT;
     }
 
-    if ( pTLCb->atlSTAClients[*pucSTAId] && (0 == pTLCb->atlSTAClients[*pucSTAId]->ucExists ))
+    if ( NULL == pTLCb->atlSTAClients[*pucSTAId] )
+    {
+      TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
+            "WLAN TL:Invalid pTLCb->atlSTAClients pointer for STA Id :%d on "
+            "WLANTL_ResumeDataTx", *pucSTAId));
+      return VOS_STATUS_E_FAULT;
+    }
+
+    if ( 0 == pTLCb->atlSTAClients[*pucSTAId]->ucExists )
     {
       TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
              "WLAN TL:Station %d was not previously registered on WLANTL_ResumeDataTx", *pucSTAId));
@@ -6900,7 +6916,18 @@ WLANTL_STATxAuth
        tlMetaInfo.ucDisableFrmXtl = 1;
     }
   }
+#ifdef FEATURE_WLAN_TDLS
+    /*In case of TDLS, if the packet is destined to TDLS STA ucSTAId may
+      change. so update the pStaClient accordingly */
+    pStaClient = pTLCb->atlSTAClients[ucSTAId];
 
+    if ( NULL == pStaClient )
+    {
+        TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
+        "pStaClient is NULL %s", __func__));
+        return VOS_STATUS_E_FAILURE;
+    }
+#endif
   /*-------------------------------------------------------------------------
     Call HAL to fill BD header
    -------------------------------------------------------------------------*/
@@ -10502,12 +10529,12 @@ WLANTL_EnableUAPSDForAC
    ------------------------------------------------------------------------*/
   pTLCb = VOS_GET_TL_CB(pvosGCtx);
   if (( NULL == pTLCb ) || WLANTL_STA_ID_INVALID( ucSTAId )
-      ||   WLANTL_AC_INVALID(ucAC) || ( 0 == uServiceInt ) )
+      ||   WLANTL_AC_INVALID(ucAC))
   {
     TLLOGE(VOS_TRACE( VOS_MODULE_ID_TL, VOS_TRACE_LEVEL_ERROR,
                "WLAN TL:Invalid input params on WLANTL_EnableUAPSDForAC"
-               " TL: %p  STA: %d  AC: %d SI: %d",
-               pTLCb, ucSTAId, ucAC, uServiceInt ));
+               " TL: %p  STA: %d  AC: %d",
+               pTLCb, ucSTAId, ucAC));
     return VOS_STATUS_E_FAULT;
   }
 

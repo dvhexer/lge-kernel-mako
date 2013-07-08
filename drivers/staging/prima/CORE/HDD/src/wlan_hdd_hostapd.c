@@ -1628,7 +1628,6 @@ int iw_softap_get_channel_list(struct net_device *dev,
     v_U8_t bandEndChannel = RF_CHAN_165;
     v_U32_t temp_num_channels = 0;
     hdd_adapter_t *pHostapdAdapter = (netdev_priv(dev));
-    hdd_context_t *pHddCtx = WLAN_HDD_GET_CTX(pHostapdAdapter);
     tHalHandle hHal = WLAN_HDD_GET_HAL_CTX(pHostapdAdapter);
     v_REGDOMAIN_t domainIdCurrentSoftap;
     tpChannelListInfo channel_list = (tpChannelListInfo) extra;
@@ -1653,8 +1652,8 @@ int iw_softap_get_channel_list(struct net_device *dev,
         bandEndChannel = RF_CHAN_165;
     }
 
-    hddLog(LOG1, FL("\n nBandCapability = %d, bandStartChannel = %hu, "
-                "bandEndChannel = %hu \n"), pHddCtx->cfg_ini->nBandCapability, 
+    hddLog(LOG1, FL("\n curBand = %d, bandStartChannel = %hu, "
+                "bandEndChannel = %hu "), curBand,
                 bandStartChannel, bandEndChannel );
 
     for( i = bandStartChannel; i <= bandEndChannel; i++ )
@@ -2930,11 +2929,14 @@ VOS_STATUS hdd_init_ap_mode( hdd_adapter_t *pAdapter )
 {   
     hdd_hostapd_state_t * phostapdBuf;
     struct net_device *dev = pAdapter->dev;
+    hdd_context_t *pHddCtx = WLAN_HDD_GET_CTX(pAdapter);
     VOS_STATUS status;
     ENTER();
        // Allocate the Wireless Extensions state structure   
     phostapdBuf = WLAN_HDD_GET_HOSTAP_STATE_PTR( pAdapter );
  
+    sme_SetCurrDeviceMode(pHddCtx->hHal, pAdapter->device_mode);
+
     // Zero the memory.  This zeros the profile structure.
     memset(phostapdBuf, 0,sizeof(hdd_hostapd_state_t));
     

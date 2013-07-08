@@ -223,9 +223,18 @@ eHalStatus sme_Stop(tHalHandle hHal, tANI_BOOLEAN pmcFlag);
   \sa
   
   --------------------------------------------------------------------------*/
-eHalStatus sme_OpenSession(tHalHandle hHal, csrRoamCompleteCallback callback, void *pContext, 
-                           tANI_U8 *pSelfMacAddr, tANI_U8 *pbSessionId);
+eHalStatus sme_OpenSession(tHalHandle hHal, csrRoamCompleteCallback callback,
+                           void *pContext, tANI_U8 *pSelfMacAddr,
+                           tANI_U8 *pbSessionId);
 
+/*--------------------------------------------------------------------------
+
+  \brief sme_SetCurrDeviceMode() - Sets the current operating device mode.
+  \param hHal - The handle returned by macOpen.
+  \param currDeviceMode - Current operating device mode.
+  --------------------------------------------------------------------------*/
+
+void sme_SetCurrDeviceMode (tHalHandle hHal, tVOS_CON_MODE currDeviceMode);
 
 /*--------------------------------------------------------------------------
   
@@ -2283,7 +2292,9 @@ eHalStatus sme_UpdateRoamScanNProbes(tHalHandle hHal, const v_U8_t nProbes);
     \param  nRoamScanAwayTime Scan home away time
     \- return Success or failure
     -------------------------------------------------------------------------*/
-eHalStatus sme_UpdateRoamScanHomeAwayTime(tHalHandle hHal, const v_U16_t nRoamScanHomeAwayTime);
+eHalStatus sme_UpdateRoamScanHomeAwayTime(tHalHandle hHal,
+                                          const v_U16_t nRoamScanHomeAwayTime,
+                                          const eAniBoolean bSendOffloadCmd);
 
 /* ---------------------------------------------------------------------------
     \fn sme_getRoamIntraBand
@@ -2787,13 +2798,6 @@ VOS_STATUS sme_AddTdlsPeerSta(tHalHandle hHal, tANI_U8 sessionId, tSirMacAddr pe
     -------------------------------------------------------------------------*/
 VOS_STATUS sme_DeleteTdlsPeerSta(tHalHandle hHal, tANI_U8 sessionId, tSirMacAddr peerMac);
 /* ---------------------------------------------------------------------------
-    \fn sme_IsPmcBmps
-    \brief  API to Check if PMC state is BMPS.
-
-    \- return v_BOOL_t
-    -------------------------------------------------------------------------*/
-v_BOOL_t sme_IsPmcBmps(tHalHandle hHal);
-/* ---------------------------------------------------------------------------
     \fn sme_SetTdlsPowerSaveProhibited
     \API to set/reset the isTdlsPowerSaveProhibited.
 
@@ -2801,6 +2805,14 @@ v_BOOL_t sme_IsPmcBmps(tHalHandle hHal);
     -------------------------------------------------------------------------*/
 void sme_SetTdlsPowerSaveProhibited(tHalHandle hHal, v_BOOL_t val);
 #endif
+/* ---------------------------------------------------------------------------
+    \fn sme_IsPmcBmps
+    \brief  API to Check if PMC state is BMPS.
+
+    \- return v_BOOL_t
+    -------------------------------------------------------------------------*/
+v_BOOL_t sme_IsPmcBmps(tHalHandle hHal);
+
 #ifdef FEATURE_WLAN_TDLS_INTERNAL
 typedef struct smeTdlsDisResult
 {

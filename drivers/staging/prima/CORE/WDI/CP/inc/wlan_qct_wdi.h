@@ -3095,6 +3095,14 @@ typedef struct
 }WDI_SetTDLSLinkEstablishReqParamsType;
 
 
+typedef struct
+{
+  /*Result of the operation*/
+  WDI_Status wdiStatus;
+
+  /*STA Idx*/
+  wpt_uint16 uStaIdx;
+}WDI_SetTdlsLinkEstablishReqResp;
 
 /*---------------------------------------------------------------------------
   WDI_SetAddSTASelfParamsType
@@ -3103,6 +3111,9 @@ typedef struct
 {
   /*Self Station MAC address*/
   wpt_macAddr selfMacAddr;
+
+  /*Self STA device mode*/
+  wpt_uint32 currDeviceMode;
 
   /*Status of the operation*/
   wpt_uint32  uStatus;
@@ -3565,6 +3576,7 @@ typedef struct
    wpt_uint8 srcIPv6AddrValid : 1;
    wpt_uint8 targetIPv6Addr1Valid : 1;
    wpt_uint8 targetIPv6Addr2Valid : 1;
+   wpt_uint8 slotIdx;
 } WDI_NSOffloadParams;
 #endif //WLAN_NS_OFFLOAD
 
@@ -5775,7 +5787,8 @@ typedef void  (*WDI_SetP2PGONOAReqParamsRspCb)(WDI_Status   wdiStatus,
   RETURN VALUE
     The result code associated with performing the operation
 ---------------------------------------------------------------------------*/
-typedef void  (*WDI_SetTDLSLinkEstablishReqParamsRspCb)(WDI_Status   wdiStatus,
+typedef void  (*WDI_SetTDLSLinkEstablishReqParamsRspCb)(WDI_SetTdlsLinkEstablishReqResp *
+                                wdiSetTdlsLinkEstablishReqRsp,
                                 void*        pUserData);
 
 /*---------------------------------------------------------------------------
